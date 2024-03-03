@@ -1,0 +1,97 @@
+pipeline {
+    agent {
+        label 'master-node'
+    }
+    stages {
+        stage('BuildApplication') {
+            steps {
+                sh 'mvn -f jenkins/java-tomcat-sample/pom.xml clean package'
+            }
+            post {
+                success {
+                    echo "we are archiving the artifact"
+                    archiveArtifacts artifacts: '**/*.war', followSymlinks: false
+                }
+            }
+        }
+
+        stage('CreateTomcatImage') {
+            agent {
+                label 'ubuntu-slave'
+            }
+            steps {
+                copyArtifacts filter: '**/*.war', fingerprintArtifacts: true, projectName: env.JOB_NAME, selector: lastWithArtifacts()
+                echo "Bulding docker image"
+                sh '''
+                original_pwd=$(pwd -P)
+                cd jenkins/java-tomcat-sample
+                docker image rm -f $(docker images | awk -F ' ' '{print $3}' | tail -n +2) &> /dev/null
+                docker build -t localtomcatimg:$BUILD_NUMBER .
+                cd $original_pwd
+                sh '''
+            }
+        }
+
+        stage('Deploy in QA instance') {
+            agent {
+                label 'ubuntu-slave'
+            }
+            steps {
+                echo "We are deploying the app"
+                sh '''
+                docker container stop tomcatlocalinstance || true
+                docker container rm tomcatlocalinstance  || true
+                docker container run -itd --name tomcatlocalinstance -p 8084:8080 localtomcatimg:$BUILD_NUMBER
+                sh '''
+            }
+        }
+
+        stage('Deploy in Stagging instance') {
+            agent {
+                label 'ubuntu-slave'
+            }
+            steps {
+                timeout(time:5, unit:'MINUTES') {
+                    input message: 'Approve the stagging deployment'
+                }
+                echo "We are deploying the app in stagging env"
+                sh '''
+                docker container stop tomcatstaginginstance || true
+                docker container rm tomcatstaginginstance || true
+                docker container run -itd --name tomcatstaginginstance -p 8085:8080 localtomcatimg:$BUILD_NUMBER
+                sh '''
+            }
+        }
+    }
+    post {
+        always {
+            mail to: 'dtk1418@gmail.com',
+            subject: "Job '${JOB_NAME}' (${BUILD_NUMBER}) is waiting for input",
+            body: "Please go to ${BUILD_URL} and verify the build"
+        }
+        success {
+            mail bcc: '', body: """Hi Team,
+    
+            Build #$BUILD_NUMBER is successful, please go through the url
+    
+            $BUILD_URL
+    
+            and verify the details.
+    
+            Regards,
+            DevOps Team""", cc: '', from: '', replyTo: '', subject: 'BUILD SUCCESS NOTIFICATION', to: 'dtk1418@gmail.com'
+        }
+        failure {
+            mail bcc: '', body: """Hi Team,
+    
+            Build #$BUILD_NUMBER is unsuccessful, please go through the url
+    
+            $BUILD_URL
+    
+            and verify the details.
+    
+            Regards,
+            DevOps Team""", cc: '', from: '', replyTo: '', subject: 'BUILD FAILED NOTIFICATION', to: 'dtk1418@gmail.com'
+        }
+    }
+}
