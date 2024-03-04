@@ -38,8 +38,8 @@ pipeline {
             }
             steps {
                 echo "we are pushing the image to the registry"
-                sh 'docker image tag localtomcatimg:$BUILD_NUMBER http://192.168.1.91:5000/localtomcatimg:$BUILD_NUMBER'
-                sh 'docker image push http://192.168.1.91:5000/localtomcatimg:$BUILD_NUMBER'
+                sh 'docker image tag localtomcatimg:$BUILD_NUMBER localhost:5000/localtomcatimg:$BUILD_NUMBER'
+                sh 'docker image push localhost:5000/localtomcatimg:$BUILD_NUMBER'
             }
         }
 
