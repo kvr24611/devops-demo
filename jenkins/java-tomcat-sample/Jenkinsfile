@@ -33,6 +33,9 @@ pipeline {
         }
 
         stage('PushImage') {
+            agent {
+                label 'ubuntu-slave'
+            }
             steps {
                 echo "we are pushing the image to the registry"
                 sh 'docker image tag localtomcatimg:$BUILD_NUMBER 192.168.1.91:5000/localtomcatimg:$BUILD_NUMBER'
