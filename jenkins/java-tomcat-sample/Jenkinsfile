@@ -43,12 +43,12 @@ pipeline {
             }
         }
 
-        stage('Deploy in QA instance') {
+        stage('Deploy in staging instance') {
             agent {
                 label 'ubuntu-slave'
             }
             steps {
-                echo "We are deploying the app"
+                echo "We are deploying the app in staging server..."
                 sh '''
                 docker container stop tomcatlocalinstance || true
                 docker container rm tomcatlocalinstance  || true
@@ -57,7 +57,7 @@ pipeline {
             }
         }
 
-        stage('Deploy in Stagging instance') {
+        stage('Deploy in production instance') {
             agent {
                 label 'ubuntu-slave'
             }
@@ -65,7 +65,7 @@ pipeline {
                 timeout(time:5, unit:'MINUTES') {
                     input message: 'Approve the stagging deployment'
                 }
-                echo "We are deploying the app in stagging env"
+                echo "We are deploying the app in production env.."
                 sh '''
                 docker container stop tomcatstaginginstance || true
                 docker container rm tomcatstaginginstance || true
